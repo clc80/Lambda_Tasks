@@ -131,44 +131,81 @@ class TaskController {
         let fetchRequest: NSFetchRequest<Task> = Task.fetchRequest()
         fetchRequest.predicate = predicate
         
-        let context = CoreDataStack.shared.mainContext
+        // MARK: - This is from Day03
+        // let context = CoreDataStack.shared.mainContext
         
-        do {
-            
-            // This will only fetch the tasks that match the criteria in our predicate
-            let existingTasks = try context.fetch(fetchRequest)
-            
-            // Let's update the tasks that already exist in Core Data
-            
-            for task in existingTasks {
+        // Create a new background context. The thread that this context is created on is completely random; you have no control over it.
+        let context = CoreDataStack.shared.container.newBackgroundContext()
+        
+        // I want to make sure I'm using this context on the right thread, so I will call .perform
+        context.performAndWait {
+            do {
                 
-                guard let id = task.identifier,
-                    let representation = representationsByID[id] else { continue }
+                // This will only fetch the tasks that match the criteria in our predicate
+                let existingTasks = try context.fetch(fetchRequest)
                 
-                task.name = representation.name
-                task.notes = representation.notes
-                task.complete = representation.complete
-                task.priority = representation.priority
+                // Let's update the tasks that already exist in Core Data
                 
-                // If we updated the task, that means we don't need to make a copy of it. It already exists in Core Data, so remove it from the tasks we still need to create
-                tasksToCreate.removeValue(forKey: id)
+                for task in existingTasks {
+                    
+                    guard let id = task.identifier,
+                        let representation = representationsByID[id] else { continue }
+                    
+                    task.name = representation.name
+                    task.notes = representation.notes
+                    task.complete = representation.complete
+                    task.priority = representation.priority
+                    
+                    // If we updated the task, that means we don't need to make a copy of it. It already exists in Core Data, so remove it from the tasks we still need to create
+                    tasksToCreate.removeValue(forKey: id)
+                }
+                
+                // Add the tasks that don't exist
+                for representation in tasksToCreate.values {
+                    Task(taskRepresentation: representation, context: context)
+                }
+                
+            } catch {
+                NSLog("Error fetching tasks for UUIDs: \(error)")
             }
-            
-            // Add the tasks that don't exist
-            for representation in tasksToCreate.values {
-                Task(taskRepresentation: representation, context: context)
-            }
-            
-        } catch {
-            NSLog("Error fetching tasks for UUIDs: \(error)")
         }
         
-        try self.saveToPersistentStore()
+        // This will save the correct context (background context)
+        try CoreDataStack.shared.save(context: context)
     }
     
-    
-    func saveToPersistentStore() throws {
-        let moc = CoreDataStack.shared.mainContext
-        try moc.save()
+    func deleteTaskFromServer(_ task: Task, completion: @escaping CompletionHandler = { _ in }) {
+        // Make the URL by adding the identifier to the base URL, and add the .json
+        guard let identifier = task.identifier else {
+            completion(.failure(.noIdentifier))
+            return
+        }
+        
+        let requestURL = baseURL
+            .appendingPathComponent(identifier.uuidString)
+            .appendingPathExtension("json")
+        
+        var request = URLRequest(url: requestURL)
+        request.httpMethod = "DELETE"
+        
+        URLSession.shared.dataTask(with: request) { (data, response, error) in
+            if let error = error {
+                NSLog("Error deleting task for id \(identifier.uuidString): \(error)")
+                DispatchQueue.main.async {
+                    completion(.failure(.otherError))
+                }
+                return
+            }
+            DispatchQueue.main.async {
+                completion(.success(true))
+            }
+        }.resume()
     }
+    
+    // MARK: - This is from Day03
+//    func saveToPersistentStore() throws {
+//         let moc = CoreDataStack.shared.mainContext
+//
+//         try moc.save()
+//     }
 }

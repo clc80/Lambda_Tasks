@@ -68,6 +68,9 @@ class TasksTableViewController: UITableViewController {
     override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
             let task = fetchedResultsController.object(at: indexPath)
+            
+            taskController.deleteTaskFromServer(task)
+            
             let moc = CoreDataStack.shared.mainContext
             //tableView.deleteRows(at: [indexPath], with: .automatic)
             moc.delete(task)
