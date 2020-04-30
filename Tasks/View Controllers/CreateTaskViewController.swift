@@ -13,6 +13,7 @@ class CreateTaskViewController: UIViewController {
     // MARK: - Properties
     
     var complete = false
+    var taskController: TaskController?
     
     // MARK: - Outlets
     
@@ -41,7 +42,8 @@ class CreateTaskViewController: UIViewController {
         let notes = notesTextView.text
         let priorityIndex = priorityControl.selectedSegmentIndex
         let priority = TaskPriority.allCases[priorityIndex]
-        Task(name: name, notes: notes, complete: complete, priority: priority)
+        let task = Task(name: name, notes: notes, complete: complete, priority: priority)
+        taskController?.put(task: task, completion: { _ in })
         do {
             try CoreDataStack.shared.mainContext.save()
             navigationController?.dismiss(animated: true, completion: nil)

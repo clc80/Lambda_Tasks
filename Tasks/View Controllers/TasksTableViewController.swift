@@ -13,6 +13,10 @@ class TasksTableViewController: UITableViewController {
     
     // MARK: Properties
     
+    let taskController = TaskController()
+    
+    // If you have a fetchedResultsController that uses the sectionNameKeyPath to provide sections, you MUST have the first sort descriptor of the fetch request have the key for the same key path as the sections
+    
     lazy var fetchedResultsController: NSFetchedResultsController<Task> = {
         let fetchRequest: NSFetchRequest<Task> = Task.fetchRequest()
         fetchRequest.sortDescriptors = [NSSortDescriptor(key: "priority", ascending: true),
@@ -23,6 +27,19 @@ class TasksTableViewController: UITableViewController {
         try! frc.performFetch()
         return frc
     }()
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        taskController.fetchTasksFromServer()
+    }
+    
+    @IBAction func refresh(_ sender: Any) {
+        taskController.fetchTasksFromServer { (_) in
+            // normally handle the result argument
+            
+            self.refreshControl?.endRefreshing()
+        }
+    }
     
     // MARK: - Table view data source
     
@@ -52,6 +69,7 @@ class TasksTableViewController: UITableViewController {
         if editingStyle == .delete {
             let task = fetchedResultsController.object(at: indexPath)
             let moc = CoreDataStack.shared.mainContext
+            //tableView.deleteRows(at: [indexPath], with: .automatic)
             moc.delete(task)
             do {
                 try moc.save()
@@ -70,6 +88,12 @@ class TasksTableViewController: UITableViewController {
             if let detailVC = segue.destination as? TaskDetailViewController,
                 let indexPath = tableView.indexPathForSelectedRow {
                 detailVC.task = fetchedResultsController.object(at: indexPath)
+                detailVC.taskController = taskController
+            }
+        } else if segue.identifier == "CreateTaskModalSegue" {
+            if let navC = segue.destination as? UINavigationController,
+                let createTaskVC = navC.viewControllers.first as? CreateTaskViewController {
+                createTaskVC.taskController = taskController
             }
         }
     }
