@@ -188,7 +188,15 @@ class TaskController {
         var request = URLRequest(url: requestURL)
         request.httpMethod = "DELETE"
         
-        URLSession.shared.dataTask(with: request) { (data, response, error) in
+        URLSession.shared.dataTask(with: request) { (_, response, error) in
+            
+            if let response = response as? HTTPURLResponse,
+                response.statusCode != 200 {
+                //Some code here about what went wrong
+                NSLog("Error: Status code is not the expected 200. Instead it is \(response.statusCode)")
+            }
+            
+            
             if let error = error {
                 NSLog("Error deleting task for id \(identifier.uuidString): \(error)")
                 DispatchQueue.main.async {
